@@ -1,0 +1,58 @@
+///////////////////////////////////////////////////////////
+/// qmotion Windows resource file
+///////////////////////////////////////////////////////////
+
+#include <winver.h>
+
+///////////////////////////////////////////////////////////
+/// Icons
+///////////////////////////////////////////////////////////
+1 icon "hibou.ico"
+
+///////////////////////////////////////////////////////////
+/// Version
+///////////////////////////////////////////////////////////
+VS_VERSION_INFO versioninfo
+	FILEVERSION 2,0,0,0
+	PRODUCTVERSION 2,0,0,0
+	FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+	FILEFLAGS VS_FF_DEBUG
+#else
+	FILEFLAGS 0
+#endif
+	FILEOS VOS_NT
+	FILETYPE VFT_APP
+	FILESUBTYPE 0
+{
+	block "StringFileInfo"
+	{
+		block "040904b0"
+		{
+			value "CompanyName", "Stéphane List"
+			value "FileDescription", "qmotion - Motion Detection executable"
+			value "FileVersion", "2.00.000"
+			value "InternalName", "qmotion"
+			value "LegalCopyright", "Copyright (C) 2009+, Stéphane List"
+			value "OriginalFilename", "qmotion.exe"
+			value "ProductName", "qmotion - Motion Detection"
+			value "ProductVersion", "2.00.000"
+		}
+		block "040c04b0"
+		{
+			value "CompanyName", "Stéphane List"
+			value "FileDescription", "qmotion - Détection de mouvement - Exécutable"
+			value "FileVersion", "2.00.000"
+			value "InternalName", "qmotion"
+			value "LegalCopyright", "Copyright (C) 2009+, Stéphane List"
+			value "OriginalFilename", "qmotion.exe"
+			value "ProductName", "qmotion - Détection de mouvement"
+			value "ProductVersion", "2.00.000"
+		}
+	}
+	block "VarFileInfo"
+	{
+		value "Translation", 0x409, 1200, 0x40c, 1200
+	}
+}
+
