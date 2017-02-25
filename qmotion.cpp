@@ -96,7 +96,6 @@ void QMotion::update_image(const cv::Mat & image)
     if (counter_ == 0)
     {
         label_size->setText(tr("size: %1x%2").arg(qImage_.width()).arg(qImage_.height()));
-        label_video->setMinimumHeight(qImage_.height() * qImage_.width() / label_video->width());
         video_size_ = qImage_.size();
     }
     if (checkBox_timestamp->isChecked())
@@ -105,6 +104,7 @@ void QMotion::update_image(const cv::Mat & image)
     }
     if (!checkBox_disable_display->isChecked())
     {
+        label_video->setMinimumHeight(qImage_.height() * qImage_.width() / label_video->width());
         label_video->setPixmap(QPixmap::fromImage(qImage_.scaled(label_video->width(),label_video->height()),Qt::AutoColor));
     }
     counter_++;
@@ -342,7 +342,7 @@ void QMotion::on_component_markers_stateChanged(int i)
 
 void QMotion::mail(const QString & f)
 {
-    const QString server("smtp.neuf.fr");
+    /*const QString server("smtp.neuf.fr");
     const QString from("maison@neuf.fr");
     QStringList tolist;
     tolist << "stephane.list@gmail.com";
@@ -357,6 +357,5 @@ void QMotion::mail(const QString & f)
         qDebug() << "Send OK";
     else
         qDebug() << "Send FAILED";
-    QFile(f).remove();
-
+    QFile(f).remove();*/
 }

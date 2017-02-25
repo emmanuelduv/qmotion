@@ -36,8 +36,8 @@ CaptureThread::CaptureThread(QObject *parent)
         emit webcamError(tr("No webcam"));
         return;
     }
-    cv::Mat tmp;
-    capture_ >> tmp;
+    capture_.set(cv::CAP_PROP_FRAME_WIDTH, 10000);
+    capture_.set(cv::CAP_PROP_FRAME_HEIGHT, 10000);
 }
 
 
