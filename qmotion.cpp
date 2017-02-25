@@ -40,9 +40,9 @@ QMotion::QMotion(QWidget *parent)
       counter_(0),
       counter_last_(0)
 {
+    qRegisterMetaType< cv::Mat >("cv::Mat");
     QSettings settings;
     setupUi(this);
-    qRegisterMetaType<IplImage>("IplImage");
 
     QColor blue(0,0,255);
     color_ = QColor(settings.value("color", blue.name()).toString());
@@ -53,43 +53,44 @@ QMotion::QMotion(QWidget *parent)
     int lim = settings.value("limit_fps", 25).toInt();
     limit_fps->setValue(lim);
     captureThread_.set_fps_limit(lim);
-    connect(limit_fps, SIGNAL(valueChanged(int)), &captureThread_, SLOT(set_fps_limit(int)));
+    QObject::connect(limit_fps, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), &captureThread_, &CaptureThread::set_fps_limit, Qt::QueuedConnection);
 
     Flip->setChecked(settings.value("flip",0).toBool());
+    checkBox_disable_display->setChecked(settings.value("display",0).toBool());
 
     int thr = settings.value("detection_threshold", 30).toInt();
     motionDetector_.set_threshold(thr);
     threshold->setValue(thr);
-    connect(threshold, SIGNAL(valueChanged(int)), &motionDetector_, SLOT(set_threshold(int)));
+    QObject::connect(threshold, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), &motionDetector_, &MotionDetector::set_threshold);
 
     checkBox_timestamp->setChecked(settings.value("timestamp", false).toBool());
     checkBox_save->setChecked(settings.value("save_motion_infile", false).toBool());
     checkBox_ftp->setChecked(settings.value("save_motion_inftp", false).toBool());
 
-    connect(actionQuit, SIGNAL(triggered()), qApp, SLOT(quit()));
-    connect(actionAbout_QT, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
-    connect(actionAbout_QMotion, SIGNAL(triggered()), this, SLOT(about()));
-    connect(action_Directory_settings, SIGNAL(triggered()), this, SLOT(dir_settings()));
-    connect(action_FTP_settings, SIGNAL(triggered()), this, SLOT(ftp_settings()));
+    QObject::connect(actionQuit, &QAction::triggered, qApp, &QApplication::quit);
+    QObject::connect(actionAbout_QT, &QAction::triggered, qApp, &QApplication::aboutQt);
+    QObject::connect(actionAbout_QMotion, &QAction::triggered, this, &QMotion::about);
+    QObject::connect(action_Directory_settings, &QAction::triggered, this, &QMotion::dir_settings);
+    QObject::connect(action_FTP_settings, &QAction::triggered, this, &QMotion::ftp_settings);
 
-    connect(&motionDetector_, SIGNAL(motion()), this, SLOT(motion_treatment()));
+    QObject::connect(&motionDetector_, &MotionDetector::motion, this, &QMotion::motion_treatment);
 
     timer_fps_.start(1000);
-    connect(&timer_fps_,SIGNAL(timeout()), this,SLOT(fps_update()));
+    QObject::connect(&timer_fps_, &QTimer::timeout, this, &QMotion::fps_update);
 
-    connect(&captureThread_, SIGNAL(output(const IplImage&)), this, SLOT(update_image(const IplImage&)));
-    connect(&captureThread_, SIGNAL(webcamError(const QString&)), label_video, SLOT(setText(const QString&)));
+    QObject::connect(&captureThread_, &CaptureThread::output, this, &QMotion::update_image, Qt::QueuedConnection);
+    QObject::connect(&captureThread_, &CaptureThread::webcamError, label_video, &QLabel::setText, Qt::QueuedConnection);
 
-    connect(&captureThread_, SIGNAL(output(const IplImage&)), &motionDetector_, SLOT(input(const IplImage&)));
-    connect(&motionDetector_, SIGNAL(output(const IplImage&)), this, SLOT(update_motion(const IplImage&)));
+    QObject::connect(&captureThread_, &CaptureThread::output, &motionDetector_, &MotionDetector::input, Qt::QueuedConnection);
+    QObject::connect(&motionDetector_, &MotionDetector::output, this, &QMotion::update_motion);
     captureThread_.start();
 
-    connect(this, SIGNAL(mail_file(const QString&)), this, SLOT(mail(const QString&)));
+    QObject::connect(this, &QMotion::mail_file, this, &QMotion::mail);
 }
 
-void QMotion::update_image(const IplImage & image)
+void QMotion::update_image(const cv::Mat & image)
 {
-    qImage_ = Ipl2QImage(&image, Flip->isChecked());
+    qImage_ = cvMatToQImage(image, Flip->isChecked());
 
     if (counter_ == 0)
     {
@@ -108,11 +109,11 @@ void QMotion::update_image(const IplImage & image)
     counter_++;
 }
 
-void QMotion::update_motion(const IplImage & image)
+void QMotion::update_motion(const cv::Mat& image)
 {
     if (!checkBox_disable_display->isChecked())
     {
-        QImage tmp = Ipl2QImage(&image, Flip->isChecked());
+        QImage tmp = cvMatToQImage(image, Flip->isChecked());
         label_motion->setPixmap(QPixmap::fromImage(tmp.scaled(label_motion->width(),label_motion->height()),Qt::AutoColor));
     }
 }
@@ -125,6 +126,7 @@ QMotion::~QMotion()
     settings.setValue("timestamp", checkBox_timestamp->isChecked());
     settings.setValue("color", color_.name());
     settings.setValue("flip",Flip->isChecked());
+    settings.setValue("display",checkBox_disable_display->isChecked());
     settings.setValue("detection_threshold",threshold->value());
     settings.setValue("save_motion_infile", checkBox_save->isChecked());
     settings.setValue("save_motion_inftp", checkBox_ftp->isChecked());
@@ -355,8 +357,8 @@ void QMotion::mail(const QString & f)
     const QString from("maison@neuf.fr");
     QStringList tolist;
     tolist << "stephane.list@gmail.com";
-    const QString subject("Détection de mouvement");
-    const QString body("Ci-joint la photo prise par le système d'alarme !\r\n");
+    const QString subject("DÃ©tection de mouvement");
+    const QString body("Ci-joint la photo prise par le systÃ¨me d'alarme !\r\n");
 
     MailSender m(server, from, tolist, subject, body);
     QStringList attachfiles;

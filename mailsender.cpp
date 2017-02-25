@@ -5,6 +5,7 @@
 #include <QString>
 #include <QSslSocket>
 #include <QTextStream>
+#include <QDataStream>
 #include <QByteArray>
 #include <QDateTime>
 #include <QTextCodec>

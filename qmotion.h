@@ -46,8 +46,8 @@ public:
 public slots:
     void fps_update();
     void FTPstateChanged(int);
-    void update_image(const IplImage&);
-    void update_motion(const IplImage&);
+    void update_image(const cv::Mat&);
+    void update_motion(const cv::Mat&);
     void motion_treatment();
 
 private slots:
@@ -67,7 +67,7 @@ protected:
     void resizeEvent( QResizeEvent * event );
 
 private:
-    void  update_mhi(IplImage* img, IplImage* dst, int diff_threshold);
+    void update_mhi(cv::Mat img, cv::Mat dst, int diff_threshold);
     void add_timestamp(QImage & img);
     QTimer timer_fps_;
     QColor color_;

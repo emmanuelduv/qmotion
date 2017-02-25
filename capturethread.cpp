@@ -27,18 +27,17 @@
 CaptureThread::CaptureThread(QObject *parent)
     : QThread(parent),
       abort_(false),
-      capture_(0),
       fps_limit_(25)
 {
     qDebug() << "CaptureThread::CaptureThread";
-    capture_ = cvCaptureFromCAM(0);
-    if (!capture_)
+    if (!capture_.open(0))
     {
         qWarning("No webcam");
         emit webcamError(tr("No webcam"));
         return;
     }
-    cvGrabFrame(capture_);
+    cv::Mat tmp;
+    capture_ >> tmp;
 }
 
 
@@ -50,9 +49,9 @@ CaptureThread::~CaptureThread()
     {
         qDebug() << "thread takes more than 1 second to finish, use the force !";
     }
-    if (capture_)
+    if (capture_.isOpened())
     {
-        cvReleaseCapture(&capture_);
+        capture_.release();
     }
 }
 
@@ -68,16 +67,16 @@ void CaptureThread::run()
 
 void CaptureThread::capture()
 {
-    if ( !capture_ )
+    if ( !capture_.isOpened() )
     {
         qDebug() << "capture_ not initialised";
         emit webcamError(tr("No webcam"));
         return;
     }
     //qDebug() << "recording a frame - " << QTime::currentTime();
-    image_ = cvQueryFrame(capture_);
+    capture_ >> image_;
 
-    emit output(*image_);
+    emit output(image_);
     msleep(1000/fps_limit_);
 }
 

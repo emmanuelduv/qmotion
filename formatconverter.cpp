@@ -20,48 +20,80 @@
 
 #include "formatconverter.h"
 
-QImage Ipl2QImage(const IplImage* newImage,bool upsideDown)
-{
-    if ((0 != newImage) && (cvGetSize(newImage).width > 0))
-    {
-        const char* src = newImage->imageData;
-        QImage qtemp(newImage->width,newImage->height,QImage::Format_RGB32);
+#include <QDebug>
 
-        if (upsideDown)
-        {
-            for (int y = 0; y < newImage->height; ++y, src += newImage->widthStep)
-            {
-                uint* dst = reinterpret_cast<uint*>(qtemp.scanLine (newImage->height - y - 1));
-                for (int x = 0; x < newImage->width; ++x, ++dst)
-                {
-                    *dst = qRgb(src[x * newImage->nChannels + 2]
-                            ,src[x * newImage->nChannels + 1]
-                            ,src[x * newImage->nChannels]);
-                }
-            }
-        }
-        else
-        {
-            for (int y = 0; y < newImage->height; ++y, src += newImage->widthStep)
-            {
-                uint* dst = reinterpret_cast<uint*>(qtemp.scanLine(y));
-                for (int x = 0; x < newImage->width; ++x, ++dst)
-                {
-                    *dst = qRgb(src[x * newImage->nChannels + 2]
-                            ,src[x * newImage->nChannels + 1]
-                            ,src[x * newImage->nChannels]);
-                }
-            }
-        }
-        return qtemp;
-    }
-    else
-        return QImage();
-}
-/* TODO
-IplImage QImage2Ipl(const QImage & img, bool upsideDown)
+QImage  cvMatToQImage( const cv::Mat &inMat, bool upsideDown )
 {
-    IplImage i;
-    return i;
+    switch ( inMat.type() )
+    {
+    // 8-bit, 4 channel
+    case CV_8UC4:
+    {
+        QImage image( inMat.u->data,
+                      inMat.cols, inMat.rows,
+                      static_cast<int>(inMat.step),
+                      QImage::Format_ARGB32 );
+
+        if(upsideDown)
+            return image.mirrored(true, false);
+
+        return image;
+    }
+
+        // 8-bit, 3 channel
+    case CV_8UC3:
+    {
+        QImage image( inMat.u->data,
+                      inMat.cols, inMat.rows,
+                      static_cast<int>(inMat.step),
+                      QImage::Format_RGB888 );
+
+        if(upsideDown)
+            return image.mirrored(true, false);
+
+        return image.rgbSwapped();
+    }
+
+        // 8-bit, 1 channel
+    case CV_8UC1:
+    {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 5, 0)
+        QImage image( inMat.u->data,
+                      inMat.cols, inMat.rows,
+                      static_cast<int>(inMat.step),
+                      QImage::Format_Grayscale8 );
+
+#else
+        static QVector<QRgb>  sColorTable;
+
+        // only create our color table the first time
+        if ( sColorTable.isEmpty() )
+        {
+            sColorTable.resize( 256 );
+
+            for ( int i = 0; i < 256; ++i )
+            {
+                sColorTable[i] = qRgb( i, i, i );
+            }
+        }
+
+        QImage image( inMat.u->data,
+                      inMat.cols, inMat.rows,
+                      static_cast<int>(inMat.step),
+                      QImage::Format_Indexed8 );
+
+        image.setColorTable( sColorTable );
+#endif
+        if(upsideDown)
+            return image.mirrored(true, false);
+
+        return image;
+    }
+
+    default:
+        qDebug() << "ASM::cvMatToQImage() - cv::Mat image type not handled in switch:" << inMat.type();
+    break;
+    }
+
+    return QImage();
 }
-*/

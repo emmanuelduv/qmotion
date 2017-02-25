@@ -26,8 +26,7 @@
 #include <cv.h>
 #include <highgui.h>
 
-QImage Ipl2QImage(const IplImage*, bool upsideDown);
-// TODO IplImage QImage2Ipl(const QImage*, bool upsideDown);
+QImage  cvMatToQImage(const cv::Mat& inMat , bool upsideDown);
 
 #endif
 

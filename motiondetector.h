@@ -26,7 +26,6 @@
 #include <QColor>
 
 #include <cv.h>
-#include <highgui.h>
 
 class MotionDetector : public QObject
 {
@@ -39,32 +38,30 @@ public:
 
 public slots:
     void set_motion_color(const QColor &);
-    void input(const IplImage &);
+    void input(const cv::Mat&);
     void set_threshold(int);
 
 private:
     int threshold_;
-    void  update_mhi(const IplImage* img, IplImage* dst, int diff_threshold);
-    IplImage *motion_;
+    void  update_mhi(const cv::Mat& img, cv::Mat &dst, int diff_threshold);
+    cv::Mat motion_;
     QColor color_;
     int last;
+    bool init;
 
     // ring image buffer
-    IplImage **buf;
+    QVector<cv::Mat> buf;
 
     // temporary images
-    IplImage *mhi; // MHI
-    IplImage *orient; // orientation
-    IplImage *mask; // valid orientation mask
-    IplImage *red;
-    IplImage *green;
-    IplImage *blue;
-    IplImage *segmask; // motion segmentation map
-    CvMemStorage* storage; // temporary storage
+    cv::Mat mhi; // MHI
+    cv::Mat orient; // orientation
+    cv::Mat mask; // valid orientation mask
+    cv::Mat segmask; // motion segmentation map
+    std::vector<cv::Rect> storage; // temporary storage
 
 signals:
-    void output(const IplImage &);
-    void error(const QString &);
+    void output(const cv::Mat &);
+    void error(const cv::Mat &);
     void motion();
 };
 #endif

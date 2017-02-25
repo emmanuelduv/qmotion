@@ -26,6 +26,7 @@
 
 #include <cv.h>
 #include <highgui.h>
+#include <opencv2/videoio/videoio.hpp>
 
 class CaptureThread : public QThread
 {
@@ -43,13 +44,13 @@ protected:
 private:
     void capture();
     bool abort_;
-    CvCapture* capture_;
-    IplImage* image_;
+    cv::VideoCapture capture_;
+    cv::Mat image_;
     QImage qImage_;
     int fps_limit_;
 
 signals:
-    void output(const IplImage &);
+    void output(const cv::Mat& );
     void webcamError(const QString &);
 };
 
