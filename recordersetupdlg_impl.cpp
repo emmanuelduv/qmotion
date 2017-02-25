@@ -37,6 +37,8 @@ RecorderSetupDlg::Impl::Impl(RecorderSetupDlg& Intf)
 
     settings.beginGroup("recorder");
     ui_.dir->setText(settings.value("dir", "").toString());
+    ui_.flat->setChecked(settings.value("flat", 0).toBool());
+    ui_.duration->setValue(settings.value("duration", 5365800).toInt());
     settings.endGroup();
 }
 
@@ -49,6 +51,8 @@ void RecorderSetupDlg::Impl::on_buttonBox_accepted()
 
     settings.beginGroup("recorder");
     settings.setValue("dir", ui_.dir->text());
+    settings.setValue("flat", ui_.flat->isChecked());
+    settings.setValue("duration", ui_.duration->value());
     settings.endGroup();
     settings.sync();
 }

@@ -28,6 +28,7 @@
 #include <QUrl>
 #include <QBuffer>
 #include <QMetaType>
+#include <QNetworkRequest>
 
 #include "qmotion.h"
 #include "formatconverter.h"
@@ -36,7 +37,7 @@
 
 QMotion::QMotion(QWidget *parent)
     : QMainWindow(parent),
-      //    ftp_(NULL),
+      ftp_(nullptr),
       counter_(0),
       counter_last_(0)
 {
@@ -196,16 +197,22 @@ void QMotion::motion_treatment()
         {
             snapshot_file += "/";
         }
-        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd") + "__" + QTime::currentTime().toString("hh_mm_ss_zzz") + ".jpg";
+        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd");
+
+        if(settings.value("flat", 0).toBool())
+           snapshot_file += "__";
+        else {
+             snapshot_file += "/";
+             QDir out(snapshot_file);
+             if(!out.exists()){
+                 out.mkpath(snapshot_file);
+             }
+        }
+
+        snapshot_file += QTime::currentTime().toString("hh_mm_ss_zzz") + ".jpg";
         settings.endGroup();
-        if (qImage_.save(snapshot_file))
-        {
-            qDebug() << "Saved in " << snapshot_file;
-        }
-        else
-        {
+        if(!qImage_.save(snapshot_file))
             qWarning() << "Error saving in " << snapshot_file;
-        }
     }
 
     // FTP Upload
@@ -215,42 +222,37 @@ void QMotion::motion_treatment()
         QString snapshot_file;
         settings.beginGroup("ftp");
         snapshot_file = "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd") + "__" + QTime::currentTime().toString("hh_mm_ss_zzz") + ".jpg";
-#if 0
+
         if (!ftp_)
         {
-            ftp_ = new QFtp(this);
-            ftp_state_ = QFtp::Unconnected;
-            connect(ftp_, SIGNAL(stateChanged(int)), this, SLOT(FTPstateChanged(int)));
             QUrl url(settings.value("server").toString());
-            if (!url.isValid())
-            {
-                qDebug() << "Invalid ftp url :" << url;
-                ftp_->deleteLater();
-                ftp_ = NULL;
-            }
-            else
-            {
-                qDebug() << "FTP connect";
-                ftp_->connectToHost(settings.value("server").toString(), settings.value("serverport").toUInt());
+            if(url.isValid()){
+                QString directory = settings.value("directory").toString();
+                ftp_ = new QNetworkAccessManager(this);
+                if(!directory.endsWith("/")){
+                    directory += "/";
+                    settings.setValue("directory", directory);
+                }
 
-                if (!settings.value("login").toString().isEmpty())
-                    ftp_->login(QUrl::fromPercentEncoding(settings.value("login").toString().toLatin1()), settings.value("password").toString());
-                else
-                    ftp_->login();
-                if (!settings.value("directory").toString().isEmpty())
-                    ftp_->cd(settings.value("directory").toString());
+                ftpUrl_ = QUrl("ftp://"+settings.value("server").toString()+":"+QString::number(settings.value("serverport").toUInt()) + settings.value("directory").toString());
+
+                if (!settings.value("login").toString().isEmpty()){
+                    ftpUrl_.setUserName(settings.value("login").toString());
+                    ftpUrl_.setPassword(settings.value("password").toString());
+               }
             }
         }
-        if (ftp_ && ((ftp_state_ == QFtp::Connected) || (ftp_state_ == QFtp::LoggedIn)))
-        {
+        if(ftp_){
             QByteArray ba;
             QBuffer buffer(&ba);
             buffer.open(QIODevice::WriteOnly);
             qImage_.save(&buffer, "JPG");
-            qDebug() << "FTP put in " << snapshot_file;
-            ftp_->put(ba, snapshot_file);
+
+            QUrl url(ftpUrl_);
+            url.setUrl(url.url() + snapshot_file);
+            QNetworkRequest req(url);
+            ftp_->put(req, ba);
         }
-#endif
         settings.endGroup();
     }
 
@@ -275,19 +277,6 @@ void QMotion::motion_treatment()
         }
         emit mail_file(snapshot_file);
     }
-}
-
-void QMotion::FTPstateChanged(int state)
-{
-    qDebug() << "FTP state" << state;
-    ftp_state_ = state;
-#if 0
-    if ((state == QFtp::Closing) || (state == QFtp::Unconnected	))
-    {
-        ftp_->deleteLater();
-        ftp_ = NULL;
-    }
-#endif
 }
 
 void QMotion::dir_settings()

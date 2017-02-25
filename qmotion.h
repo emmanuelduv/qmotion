@@ -24,7 +24,8 @@
 #include <QTimer>
 #include <QColor>
 #include <QImage>
-//#include <QFtp>
+#include <QNetworkAccessManager>
+#include <QUrl>
 
 #include "ui_qmotion.h"
 #include "recordersetupdlg.h"
@@ -33,7 +34,6 @@
 #include "motiondetector.h"
 
 #include <cv.h>
-#include <highgui.h>
 
 class QMotion : public QMainWindow, private Ui::QMainWindowBase
 {
@@ -45,7 +45,6 @@ public:
 
 public slots:
     void fps_update();
-    void FTPstateChanged(int);
     void update_image(const cv::Mat&);
     void update_motion(const cv::Mat&);
     void motion_treatment();
@@ -71,8 +70,8 @@ private:
     void add_timestamp(QImage & img);
     QTimer timer_fps_;
     QColor color_;
-//    QFtp* ftp_;
-    int ftp_state_;
+    QNetworkAccessManager* ftp_;
+    QUrl ftpUrl_;
     int counter_;
     int counter_last_;
     CaptureThread captureThread_;

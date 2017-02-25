@@ -3,7 +3,7 @@
  <class>FTPSetupDlg</class>
  <widget class="QDialog" name="FTPSetupDlg">
   <property name="enabled">
-   <bool>false</bool>
+   <bool>true</bool>
   </property>
   <property name="geometry">
    <rect>
