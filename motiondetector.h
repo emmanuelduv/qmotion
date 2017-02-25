@@ -24,6 +24,7 @@
 #include <QObject>
 #include <QImage>
 #include <QColor>
+#include <QSettings>
 
 #include <cv.h>
 
@@ -33,21 +34,18 @@ class MotionDetector : public QObject
 public:
     MotionDetector(QObject *parent = 0);
     ~MotionDetector();
-    bool show_global_;
-    bool show_component_;
 
 public slots:
     void set_motion_color(const QColor &);
     void input(const cv::Mat&);
-    void set_threshold(int);
 
 private:
-    int threshold_;
-    void  update_mhi(const cv::Mat& img, cv::Mat &dst, int diff_threshold);
+    void  update_mhi(const cv::Mat& img, int diff_threshold);
     cv::Mat motion_;
     QColor color_;
     int last;
     bool init;
+    QSettings settings;
 
     // ring image buffer
     QVector<cv::Mat> buf;
@@ -60,7 +58,7 @@ private:
     std::vector<cv::Rect> storage; // temporary storage
 
 signals:
-    void output(const cv::Mat &);
+    void output(const QImage& image, const QImage& motion);
     void error(const cv::Mat &);
     void motion();
 };

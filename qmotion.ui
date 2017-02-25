@@ -32,19 +32,6 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_3">
     <item>
-     <spacer name="verticalSpacer_2">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_8">
       <item>
        <widget class="QGroupBox" name="groupBox_webcam">
@@ -120,7 +107,7 @@
                <property name="lineWidth">
                 <number>1</number>
                </property>
-               <property name="numDigits">
+               <property name="digitCount">
                 <number>2</number>
                </property>
               </widget>
@@ -140,7 +127,7 @@
           </layout>
          </item>
          <item>
-          <widget class="QCheckBox" name="Flip">
+          <widget class="QCheckBox" name="flip">
            <property name="text">
             <string>&amp;Flip</string>
            </property>
@@ -406,19 +393,6 @@
      </layout>
     </item>
     <item>
-     <spacer name="verticalSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_7">
       <property name="sizeConstraint">
        <enum>QLayout::SetMaximumSize</enum>
@@ -459,7 +433,7 @@
             <string>webcam</string>
            </property>
            <property name="scaledContents">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="alignment">
             <set>Qt::AlignCenter</set>
@@ -492,6 +466,9 @@
            <property name="text">
             <string>motion</string>
            </property>
+           <property name="scaledContents">
+            <bool>true</bool>
+           </property>
            <property name="alignment">
             <set>Qt::AlignCenter</set>
            </property>
@@ -502,19 +479,6 @@
       </item>
      </layout>
     </item>
-    <item>
-     <spacer name="verticalSpacer_3">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -523,7 +487,7 @@
      <x>0</x>
      <y>0</y>
      <width>859</width>
-     <height>25</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

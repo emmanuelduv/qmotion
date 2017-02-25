@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 #include "motiondetector.h"
+#include "formatconverter.h"
 
 #include <QDebug>
 #include <QTime>
@@ -42,11 +43,10 @@ const int MAGNITUDE_COMPONENT = 30;
 
 MotionDetector::MotionDetector(QObject *parent)
     : QObject(parent),
-      show_global_(true),
-      show_component_(true),
       last(0),
       init(false)
 {
+    buf.resize(N);
     qDebug() << "MotionDetector::MotionDetector";
 }
 
@@ -57,38 +57,11 @@ MotionDetector::~MotionDetector()
 }
 
 
-void MotionDetector::input(const cv::Mat &image)
-{
-    //qDebug() << "MotionDetector::input";
-    if(motion_.size[0] == 0){
-        motion_ = cv::Mat::zeros(image.size(), image.type());
-    }
-
-    update_mhi(image, motion_, threshold_);
-
-    //emit output(image);
-    emit output(motion_);
-}
-
-void MotionDetector::set_motion_color(const QColor & col)
-{
-    color_ = col;
-}
-
-void MotionDetector::set_threshold(int t)
-{
-    threshold_ = t;
-}
-
-// parameters:
-//  img - input video frame
-//  dst - resultant motion picture
-//  diff_threshold - threshold to avoid motion detection because of noise in the video
-void MotionDetector::update_mhi(const cv::Mat& img, cv::Mat& dst, int diff_threshold )
+void MotionDetector::input(const cv::Mat &img)
 {
     double timestamp = (double)clock()/CLOCKS_PER_SEC; // get current time in seconds
     int idx1 = last, idx2;
-    cv::Mat silh;
+    cv::Mat dst, silh;
     cv::Rect comp_rect;
     double count, angle, magnitude;
     cv::Point center;
@@ -97,9 +70,6 @@ void MotionDetector::update_mhi(const cv::Mat& img, cv::Mat& dst, int diff_thres
     // allocate images at the beginning or
     // reallocate them if the frame size is changed
     if(mhi.size[0] == 0 || mhi.size[0] != img.size[0] || mhi.size[1] != img.size[1]) {
-        if(buf.size() == 0)
-            buf.resize(N);
-
         mhi = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
         orient = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
         segmask = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
@@ -119,7 +89,7 @@ void MotionDetector::update_mhi(const cv::Mat& img, cv::Mat& dst, int diff_thres
     }
 
     cv::absdiff(buf[idx1], buf[idx2], silh); // get difference between frames
-    cv::threshold(silh, silh, diff_threshold, 1, CV_THRESH_BINARY); // and threshold it
+    cv::threshold(silh, silh, settings.value("detection_threshold", 30).toInt(), 1, CV_THRESH_BINARY); // and threshold it
 
     cv::motempl::updateMotionHistory(silh, mhi, timestamp, MHI_DURATION); // update MHI
 
@@ -173,8 +143,8 @@ void MotionDetector::update_mhi(const cv::Mat& img, cv::Mat& dst, int diff_thres
             continue;
 
         if(
-            ((magnitude == MAGNITUDE_GLOBAL) && show_global_)
-            || ((magnitude == MAGNITUDE_COMPONENT) && show_component_)
+            ((magnitude == MAGNITUDE_GLOBAL) && settings.value("show_global", 1).toBool())
+            || ((magnitude == MAGNITUDE_COMPONENT) && settings.value("show_component", 1).toBool())
         ){
             // draw a clock with arrow indicating the direction
             center = cv::Point(comp_rect.x + comp_rect.width / 2,comp_rect.y + comp_rect.height / 2);
@@ -208,5 +178,13 @@ void MotionDetector::update_mhi(const cv::Mat& img, cv::Mat& dst, int diff_thres
             emit motion();
         }
     }
+
+    if(!settings.value("display",0).toBool())
+        emit output(cvMatToQImage(img, settings.value("flip",0).toBool()), cvMatToQImage(dst, settings.value("flip",0).toBool()));
+}
+
+void MotionDetector::set_motion_color(const QColor & col)
+{
+    color_ = col;
 }
 

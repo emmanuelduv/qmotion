@@ -23,12 +23,19 @@
 
 #include <QDebug>
 #include <QTime>
+#include <QDir>
+#include <QBuffer>
+#include <QMetaType>
+#include <QNetworkRequest>
+#include <QPainter>
+#include <QDateTime>
+#include <QEventLoop>
 
 CaptureThread::CaptureThread(QObject *parent)
     : QThread(parent),
-      abort_(false),
-      fps_limit_(25)
+      ftp_(nullptr)
 {
+    start();
     qDebug() << "CaptureThread::CaptureThread";
     if (!capture_.open(0))
     {
@@ -38,13 +45,19 @@ CaptureThread::CaptureThread(QObject *parent)
     }
     capture_.set(cv::CAP_PROP_FRAME_WIDTH, 10000);
     capture_.set(cv::CAP_PROP_FRAME_HEIGHT, 10000);
+
+    startTimer(1000/settings.value("limit_fps", 25).toInt());
+
+    QObject::connect(this, &CaptureThread::output, &motionDetector_, &MotionDetector::input);
+    QObject::connect(&motionDetector_, &MotionDetector::motion, this, &CaptureThread::motion_treatment);
+    QObject::connect(&motionDetector_, &MotionDetector::output, this, &CaptureThread::motionOutput);
 }
 
 
 CaptureThread::~CaptureThread()
 {
     qDebug() << "CaptureThread::~CaptureThread";
-    abort_ = true;
+    emit this->abort();
     if (!wait(1000)) // The thread has 1 second to finish
     {
         qDebug() << "thread takes more than 1 second to finish, use the force !";
@@ -59,13 +72,13 @@ CaptureThread::~CaptureThread()
 void CaptureThread::run()
 {
     qDebug() << "CaptureThread::run";
-    while (!abort_)
-    {
-        capture();
-    }
+
+    QEventLoop wait;
+    QObject::connect(this, &CaptureThread::abort, &wait, &QEventLoop::quit);
+    wait.exec();
 }
 
-void CaptureThread::capture()
+void CaptureThread::timerEvent(QTimerEvent *event)
 {
     if ( !capture_.isOpened() )
     {
@@ -73,15 +86,124 @@ void CaptureThread::capture()
         emit webcamError(tr("No webcam"));
         return;
     }
-    //qDebug() << "recording a frame - " << QTime::currentTime();
+
     capture_ >> image_;
 
-    emit output(image_);
-    msleep(1000/fps_limit_);
+    emit acquired();
+    motionDetector_.input(image_);
 }
 
-void CaptureThread::set_fps_limit(int limit)
+void CaptureThread::motion_treatment()
 {
-    qDebug() << "Limit fps to : " << limit;
-    fps_limit_ = limit;
+    qImage_ = cvMatToQImage(image_, settings.value("flip",0).toBool());
+
+    if(settings.value("timestamp", false).toBool())
+        add_timestamp(qImage_);
+
+    if (settings.value("save_motion_infile", false).toBool()){
+        QString snapshot_file;
+        settings.beginGroup("recorder");
+        snapshot_file = settings.value("dir", QDir::homePath()).toString();
+        if (!snapshot_file.endsWith('/'))
+        {
+            snapshot_file += "/";
+        }
+        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd");
+
+        if(settings.value("flat", 0).toBool())
+           snapshot_file += "__" + QTime::currentTime().toString("hh_");
+        else {
+             snapshot_file += "/" + QTime::currentTime().toString("hh") + "/";
+
+             QDir out(snapshot_file);
+             if(!out.exists()){
+                 out.mkpath(snapshot_file);
+             }
+        }
+
+        snapshot_file += QTime::currentTime().toString("mm_ss_zzz") + ".jpg";
+        settings.endGroup();
+        if(!qImage_.save(snapshot_file))
+            qWarning() << "Error saving in " << snapshot_file;
+    }
+
+    // FTP Upload
+    if (settings.value("save_motion_inftp", false).toBool()){
+        QString snapshot_file;
+        settings.beginGroup("ftp");
+        snapshot_file = "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd") + "__" + QTime::currentTime().toString("hh_mm_ss_zzz") + ".jpg";
+
+        if (!ftp_)
+        {
+            QUrl url(settings.value("server").toString());
+            if(url.isValid()){
+                QString directory = settings.value("directory").toString();
+                ftp_ = new QNetworkAccessManager(this);
+                if(!directory.endsWith("/")){
+                    directory += "/";
+                    settings.setValue("directory", directory);
+                }
+
+                ftpUrl_ = QUrl("ftp://"+settings.value("server").toString()+":"+QString::number(settings.value("serverport").toUInt()) + settings.value("directory").toString());
+
+                if (!settings.value("login").toString().isEmpty()){
+                    ftpUrl_.setUserName(settings.value("login").toString());
+                    ftpUrl_.setPassword(settings.value("password").toString());
+               }
+            }
+        }
+        if(ftp_){
+            QByteArray ba;
+            QBuffer buffer(&ba);
+            buffer.open(QIODevice::WriteOnly);
+            qImage_.save(&buffer, "JPG");
+
+            QUrl url(ftpUrl_);
+            url.setUrl(url.url() + snapshot_file);
+            QNetworkRequest req(url);
+            ftp_->put(req, ba);
+        }
+        settings.endGroup();
+    }
+
+    // send mail
+    /*if (checkBox_mail->isChecked())
+    {
+        QString snapshot_file;
+        snapshot_file = QDir::tempPath();
+        if (!snapshot_file.endsWith('/'))
+        {
+            snapshot_file += "/";
+        }
+        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd") + "__" + QTime::currentTime().toString("hh_mm_ss_zzz") + ".png";
+
+        if (qImage_.save(snapshot_file))
+        {
+            qDebug() << "Saved in " << snapshot_file;
+        }
+        else
+        {
+            qWarning() << "Error saving in " << snapshot_file;
+        }
+        emit mail_file(snapshot_file);
+    }*/
+}
+
+void CaptureThread::add_timestamp(QImage & img)
+{
+    QFont def_font;
+    QFontMetrics fm(def_font);
+    int textHeightInPixels = fm.height();
+
+    QPainter painter(&img);
+    QRect bottomrect(0, img.rect().bottom() - textHeightInPixels, img.width(), textHeightInPixels);
+    painter.setOpacity(0.5);
+    painter.fillRect(bottomrect, Qt::white);
+
+    painter.setOpacity(1);
+    painter.setPen(Qt::black);
+
+    QDate d(QDate::currentDate());
+    QTime t(QTime::currentTime());
+    painter.drawText(img.rect(), Qt::AlignHCenter|Qt::AlignBottom, d.toString(Qt::DefaultLocaleLongDate) + " " + t.toString("hh:mm:ss.zzz"));
 }

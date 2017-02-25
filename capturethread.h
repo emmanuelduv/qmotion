@@ -24,9 +24,13 @@
 #include <QThread>
 #include <QImage>
 
+#include "motiondetector.h"
+
 #include <cv.h>
-#include <highgui.h>
 #include <opencv2/videoio/videoio.hpp>
+
+#include <QNetworkAccessManager>
+#include <QUrl>
 
 class CaptureThread : public QThread
 {
@@ -36,22 +40,28 @@ public:
     ~CaptureThread();
 
 public slots:
-    void set_fps_limit(int);
+    void motion_treatment();
 
 protected:
     void run();
+    void timerEvent(QTimerEvent* event);
+    void add_timestamp(QImage& img);
 
 private:
-    void capture();
-    bool abort_;
     cv::VideoCapture capture_;
     cv::Mat image_;
     QImage qImage_;
-    int fps_limit_;
+    MotionDetector motionDetector_;
+    QSettings settings;
+    QNetworkAccessManager* ftp_;
+    QUrl ftpUrl_;
 
 signals:
     void output(const cv::Mat& );
+    void motionOutput(const QImage& image, const QImage& motion);
     void webcamError(const QString &);
+    void acquired();
+    void abort();
 };
 
 #endif

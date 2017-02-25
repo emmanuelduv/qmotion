@@ -24,16 +24,12 @@
 #include <QTimer>
 #include <QColor>
 #include <QImage>
-#include <QNetworkAccessManager>
-#include <QUrl>
+#include <QMutex>
 
 #include "ui_qmotion.h"
 #include "recordersetupdlg.h"
 #include "ftpsetupdlg.h"
 #include "capturethread.h"
-#include "motiondetector.h"
-
-#include <cv.h>
 
 class QMotion : public QMainWindow, private Ui::QMainWindowBase
 {
@@ -41,13 +37,10 @@ class QMotion : public QMainWindow, private Ui::QMainWindowBase
 
 public:
     QMotion(QWidget *parent = 0);
-    ~QMotion();
 
 public slots:
-    void fps_update();
-    void update_image(const cv::Mat&);
-    void update_motion(const cv::Mat&);
-    void motion_treatment();
+    void update_images(const QImage& image, const QImage& motion);
+    void acquired();
 
 private slots:
     void about();
@@ -56,28 +49,20 @@ private slots:
     void on_pushButton_color_clicked();
     void on_global_marker_stateChanged(int);
     void on_component_markers_stateChanged(int);
-    void mail(const QString&);
 
 signals:
     void motion();
-    void mail_file(const QString&);
 
 protected:
-    void resizeEvent( QResizeEvent * event );
+    void timerEvent(QTimerEvent *event);
 
 private:
-    void update_mhi(cv::Mat img, cv::Mat dst, int diff_threshold);
-    void add_timestamp(QImage & img);
-    QTimer timer_fps_;
+    QMutex fpsMutex;
     QColor color_;
-    QNetworkAccessManager* ftp_;
-    QUrl ftpUrl_;
     int counter_;
-    int counter_last_;
     CaptureThread captureThread_;
-    MotionDetector motionDetector_;
     QSize video_size_;
-    QImage qImage_;
+    QSettings settings;
 };
 
 #endif

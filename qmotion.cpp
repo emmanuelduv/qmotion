@@ -19,16 +19,10 @@
  ***************************************************************************/
 
 #include <QMessageBox>
-#include <QSettings>
 #include <QDebug>
 #include <QDir>
 #include <QColorDialog>
-#include <QPainter>
-#include <QDateTime>
 #include <QUrl>
-#include <QBuffer>
-#include <QMetaType>
-#include <QNetworkRequest>
 
 #include "qmotion.h"
 #include "formatconverter.h"
@@ -37,33 +31,20 @@
 
 QMotion::QMotion(QWidget *parent)
     : QMainWindow(parent),
-      ftp_(nullptr),
-      counter_(0),
-      counter_last_(0)
+      counter_(0)
 {
     qRegisterMetaType< cv::Mat >("cv::Mat");
-    QSettings settings;
     setupUi(this);
+    startTimer(1000);
 
     QColor blue(0,0,255);
     color_ = QColor(settings.value("color", blue.name()).toString());
     frame_color->setPalette(QPalette(color_));
     frame_color->setAutoFillBackground(true);
-    motionDetector_.set_motion_color(color_);
-
-    int lim = settings.value("limit_fps", 25).toInt();
-    limit_fps->setValue(lim);
-    captureThread_.set_fps_limit(lim);
-    QObject::connect(limit_fps, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), &captureThread_, &CaptureThread::set_fps_limit, Qt::QueuedConnection);
-
-    Flip->setChecked(settings.value("flip",0).toBool());
+    limit_fps->setValue(settings.value("limit_fps", 25).toInt());
+    flip->setChecked(settings.value("flip",0).toBool());
     checkBox_disable_display->setChecked(settings.value("display",0).toBool());
-
-    int thr = settings.value("detection_threshold", 30).toInt();
-    motionDetector_.set_threshold(thr);
-    threshold->setValue(thr);
-    QObject::connect(threshold, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), &motionDetector_, &MotionDetector::set_threshold);
-
+    threshold->setValue(settings.value("detection_threshold", 30).toInt());
     checkBox_timestamp->setChecked(settings.value("timestamp", false).toBool());
     checkBox_save->setChecked(settings.value("save_motion_infile", false).toBool());
     checkBox_ftp->setChecked(settings.value("save_motion_inftp", false).toBool());
@@ -74,210 +55,85 @@ QMotion::QMotion(QWidget *parent)
     QObject::connect(action_Directory_settings, &QAction::triggered, this, &QMotion::dir_settings);
     QObject::connect(action_FTP_settings, &QAction::triggered, this, &QMotion::ftp_settings);
 
-    QObject::connect(&motionDetector_, &MotionDetector::motion, this, &QMotion::motion_treatment);
-
-    timer_fps_.start(1000);
-    QObject::connect(&timer_fps_, &QTimer::timeout, this, &QMotion::fps_update);
-
-    QObject::connect(&captureThread_, &CaptureThread::output, this, &QMotion::update_image, Qt::QueuedConnection);
     QObject::connect(&captureThread_, &CaptureThread::webcamError, label_video, &QLabel::setText, Qt::QueuedConnection);
+    QObject::connect(&captureThread_, &CaptureThread::motionOutput, this, &QMotion::update_images, Qt::QueuedConnection);
+    QObject::connect(&captureThread_, &CaptureThread::acquired, this, &QMotion::acquired, Qt::QueuedConnection);
 
-    QObject::connect(&captureThread_, &CaptureThread::output, &motionDetector_, &MotionDetector::input, Qt::QueuedConnection);
-    QObject::connect(&motionDetector_, &MotionDetector::output, this, &QMotion::update_motion);
-    captureThread_.start();
-
-    QObject::connect(this, &QMotion::mail_file, this, &QMotion::mail);
+    QObject::connect(limit_fps, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=](int value){
+        settings.setValue("limit_fps", value);
+    });
+    QObject::connect(threshold, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=](int value){
+        settings.setValue("detection_threshold", value);
+    });
+    QObject::connect(flip, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("flip", checked);
+    });
+    QObject::connect(checkBox_timestamp, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("timestamp", checked);
+    });
+    QObject::connect(checkBox_disable_display, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("display", checked);
+    });
+    QObject::connect(checkBox_save, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("save_motion_infile", checked);
+    });
+    QObject::connect(checkBox_ftp, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("save_motion_inftp", checked);
+    });
 }
 
-void QMotion::update_image(const cv::Mat & image)
+void QMotion::update_images(const QImage& image, const QImage& motion)
 {
-    qImage_ = cvMatToQImage(image, Flip->isChecked());
+    if(counter_ == 0){
+        label_size->setText(tr("size: %1x%2").arg(image.width()).arg(image.height()));
+    }
 
-    if (counter_ == 0)
-    {
-        label_size->setText(tr("size: %1x%2").arg(qImage_.width()).arg(qImage_.height()));
-        video_size_ = qImage_.size();
-    }
-    if (checkBox_timestamp->isChecked())
-    {
-        add_timestamp(qImage_);
-    }
-    if (!checkBox_disable_display->isChecked())
-    {
-        label_video->setMinimumHeight(qImage_.height() * qImage_.width() / label_video->width());
-        label_video->setPixmap(QPixmap::fromImage(qImage_.scaled(label_video->width(),label_video->height()),Qt::AutoColor));
-    }
+    label_video->setPixmap(QPixmap::fromImage(image));
+    label_motion->setPixmap(QPixmap::fromImage(motion));
+}
+
+void QMotion::acquired()
+{
+    QMutexLocker locker(&fpsMutex);
     counter_++;
+    qDebug() << "acquire";
 }
 
-void QMotion::update_motion(const cv::Mat& image)
+void QMotion::timerEvent(QTimerEvent *event)
 {
-    if (!checkBox_disable_display->isChecked())
-    {
-        QImage tmp = cvMatToQImage(image, Flip->isChecked());
-        label_motion->setPixmap(QPixmap::fromImage(tmp.scaled(label_motion->width(),label_motion->height()),Qt::AutoColor));
-    }
-}
-
-QMotion::~QMotion()
-{
-    qDebug() << "~QMotion()";
-    QSettings settings;
-    settings.setValue("limit_fps", limit_fps->value());
-    settings.setValue("timestamp", checkBox_timestamp->isChecked());
-    settings.setValue("color", color_.name());
-    settings.setValue("flip",Flip->isChecked());
-    settings.setValue("display",checkBox_disable_display->isChecked());
-    settings.setValue("detection_threshold",threshold->value());
-    settings.setValue("save_motion_infile", checkBox_save->isChecked());
-    settings.setValue("save_motion_inftp", checkBox_ftp->isChecked());
-}
-
-void QMotion::add_timestamp(QImage & img)
-{
-    QFont def_font;
-    QFontMetrics fm(def_font);
-    int textHeightInPixels = fm.height();
-
-    QPainter painter(&img);
-    QRect bottomrect(0, img.rect().bottom() - textHeightInPixels, img.width(), textHeightInPixels);
-    painter.setOpacity(0.5);
-    painter.fillRect(bottomrect, Qt::white);
-
-    painter.setOpacity(1);
-    painter.setPen(Qt::black);
-
-    QDate d(QDate::currentDate());
-    QTime t(QTime::currentTime());
-    painter.drawText(img.rect(), Qt::AlignHCenter|Qt::AlignBottom, d.toString(Qt::DefaultLocaleLongDate) + " " + t.toString("hh:mm:ss.zzz"));
-}
-
-void QMotion::fps_update()
-{
-    lcdNumber->display(counter_ - counter_last_);
-    counter_last_ = counter_;
+    QMutexLocker locker(&fpsMutex);
+    lcdNumber->display(counter_);
+    counter_ = 0;
 }
 
 void QMotion::about()
 {
     QMessageBox::about(this,
-                       tr("About"),
-                       tr("<p><b>QMotion</b></p>"
-                          "<p>Version QMotion: %1"
-                          "<p>Version OpenCV: %2"
-                          "<p>Version %3: %4.%5"
-                          "</p>")
-                       .arg(VERSION)
-                       .arg(CV_VERSION)
-                   #ifdef __GNUC__
-                       .arg("GCC")
-                       .arg(__GNUC__)
-                       .arg(__GNUC_MINOR__)
-                   #elif defined(_MSC_VER)
-                       .arg("VC++")
-                       .arg(_MSC_VER / 100)
-                       .arg(_MSC_VER % 100,2,10,QChar('0'))
-                   #else
-                       .arg("Compiler")
-                       .arg("?")
-                       .arg("?")
-                   #endif
-                       );
+       tr("About"),
+       tr("<p><b>QMotion</b></p>"
+          "<p>Version QMotion: %1"
+          "<p>Version OpenCV: %2"
+          "<p>Version %3: %4.%5"
+          "</p>")
+       .arg(VERSION)
+       .arg(CV_VERSION)
+#ifdef __GNUC__
+       .arg("GCC")
+       .arg(__GNUC__)
+       .arg(__GNUC_MINOR__)
+#elif defined(_MSC_VER)
+       .arg("VC++")
+       .arg(_MSC_VER / 100)
+       .arg(_MSC_VER % 100,2,10,QChar('0'))
+#else
+       .arg("Compiler")
+       .arg("?")
+       .arg("?")
+#endif
+    );
 }
 
-void QMotion::motion_treatment()
-{
-    if (checkBox_save->isChecked())
-    {
-        QSettings settings;
-        QString snapshot_file;
-        settings.beginGroup("recorder");
-        snapshot_file = settings.value("dir", QDir::homePath()).toString();
-        if (!snapshot_file.endsWith('/'))
-        {
-            snapshot_file += "/";
-        }
-        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd");
 
-        if(settings.value("flat", 0).toBool())
-           snapshot_file += "__";
-        else {
-             snapshot_file += "/";
-             QDir out(snapshot_file);
-             if(!out.exists()){
-                 out.mkpath(snapshot_file);
-             }
-        }
-
-        snapshot_file += QTime::currentTime().toString("hh_mm_ss_zzz") + ".jpg";
-        settings.endGroup();
-        if(!qImage_.save(snapshot_file))
-            qWarning() << "Error saving in " << snapshot_file;
-    }
-
-    // FTP Upload
-    if (checkBox_ftp->isChecked())
-    {
-        QSettings settings;
-        QString snapshot_file;
-        settings.beginGroup("ftp");
-        snapshot_file = "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd") + "__" + QTime::currentTime().toString("hh_mm_ss_zzz") + ".jpg";
-
-        if (!ftp_)
-        {
-            QUrl url(settings.value("server").toString());
-            if(url.isValid()){
-                QString directory = settings.value("directory").toString();
-                ftp_ = new QNetworkAccessManager(this);
-                if(!directory.endsWith("/")){
-                    directory += "/";
-                    settings.setValue("directory", directory);
-                }
-
-                ftpUrl_ = QUrl("ftp://"+settings.value("server").toString()+":"+QString::number(settings.value("serverport").toUInt()) + settings.value("directory").toString());
-
-                if (!settings.value("login").toString().isEmpty()){
-                    ftpUrl_.setUserName(settings.value("login").toString());
-                    ftpUrl_.setPassword(settings.value("password").toString());
-               }
-            }
-        }
-        if(ftp_){
-            QByteArray ba;
-            QBuffer buffer(&ba);
-            buffer.open(QIODevice::WriteOnly);
-            qImage_.save(&buffer, "JPG");
-
-            QUrl url(ftpUrl_);
-            url.setUrl(url.url() + snapshot_file);
-            QNetworkRequest req(url);
-            ftp_->put(req, ba);
-        }
-        settings.endGroup();
-    }
-
-    // send mail
-    if (checkBox_mail->isChecked())
-    {
-        QString snapshot_file;
-        snapshot_file = QDir::tempPath();
-        if (!snapshot_file.endsWith('/'))
-        {
-            snapshot_file += "/";
-        }
-        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd") + "__" + QTime::currentTime().toString("hh_mm_ss_zzz") + ".png";
-
-        if (qImage_.save(snapshot_file))
-        {
-            qDebug() << "Saved in " << snapshot_file;
-        }
-        else
-        {
-            qWarning() << "Error saving in " << snapshot_file;
-        }
-        emit mail_file(snapshot_file);
-    }
-}
 
 void QMotion::dir_settings()
 {
@@ -298,33 +154,20 @@ void QMotion::on_pushButton_color_clicked()
         frame_color->setPalette(QPalette(color));
         frame_color->setAutoFillBackground(true);
         color_ = color;
-        motionDetector_.set_motion_color(color);
-    }
-}
-
-void QMotion::resizeEvent( QResizeEvent * event )
-{
-    QWidget::resizeEvent(event);
-    if ((video_size_.isValid()) && (video_size_.width() != 0))
-    {
-        int w = video_size_.width();
-        int h = video_size_.height();
-        label_video->setMinimumHeight(h * label_video->width() / w);
-        label_video->setMaximumHeight(h * label_video->width() / w);
-        label_motion->setMinimumHeight(h * label_motion->width() / w);
-        label_motion->setMaximumHeight(h * label_motion->width() / w);
+        settings.setValue("color", color_.name());
     }
 }
 
 void QMotion::on_global_marker_stateChanged(int i)
 {
     switch (i) {
-    case (Qt::Checked):
-        motionDetector_.show_global_ = true;
+        case (Qt::Checked):
+            settings.value("show_global", true);
         break;
-    case (Qt::Unchecked):
-    default:
-        motionDetector_.show_global_ = false;
+        case (Qt::Unchecked):
+        default:
+            settings.value("show_global", false);
+        break;
     }
 }
 
@@ -332,30 +175,11 @@ void QMotion::on_component_markers_stateChanged(int i)
 {
     switch (i) {
     case (Qt::Checked):
-        motionDetector_.show_component_ = true;
-        break;
+        settings.value("show_component", true);
+    break;
     case (Qt::Unchecked):
     default:
-        motionDetector_.show_component_ = false;
+        settings.value("show_component", false);
+    break;
     }
-}
-
-void QMotion::mail(const QString & f)
-{
-    /*const QString server("smtp.neuf.fr");
-    const QString from("maison@neuf.fr");
-    QStringList tolist;
-    tolist << "stephane.list@gmail.com";
-    const QString subject("Détection de mouvement");
-    const QString body("Ci-joint la photo prise par le système d'alarme !\r\n");
-
-    MailSender m(server, from, tolist, subject, body);
-    QStringList attachfiles;
-    attachfiles << f;
-    m.setAttachments(attachfiles);
-    if (m.send())
-        qDebug() << "Send OK";
-    else
-        qDebug() << "Send FAILED";
-    QFile(f).remove();*/
 }
