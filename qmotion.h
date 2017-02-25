@@ -57,7 +57,6 @@ protected:
     void timerEvent(QTimerEvent *event);
 
 private:
-    QMutex fpsMutex;
     QColor color_;
     int counter_;
     CaptureThread captureThread_;

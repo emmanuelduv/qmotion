@@ -100,15 +100,65 @@ void CaptureThread::motion_treatment()
     if(settings.value("timestamp", false).toBool())
         add_timestamp(qImage_);
 
-    if (settings.value("save_motion_infile", false).toBool()){
+    if (settings.value("save_motion_infile", false).toBool()){        
         QString snapshot_file;
         settings.beginGroup("recorder");
+
         snapshot_file = settings.value("dir", QDir::homePath()).toString();
         if (!snapshot_file.endsWith('/'))
         {
             snapshot_file += "/";
         }
-        snapshot_file += "qmotion__" + QDate::currentDate().toString("yyyy_MM_dd");
+
+        int duration = settings.value("duration", 5365800).toInt();
+        if(duration > 0){
+            long time = QDateTime::currentDateTime().toTime_t();
+            long fileTime;
+            QDir snapshots(snapshot_file);
+
+            QStringList elements = snapshots.entryList();
+            for(QString element : elements){
+                if(element == "." || element == "..")
+                    continue;
+
+                if(element.endsWith(".jpg")){ //flat
+                    if(time - QDateTime::fromString(element.left(24), "yyyy_MM_dd__hh_mm_ss_zzz").toTime_t() > duration)
+                        QFile(snapshot_file + "/" + element).remove();
+                } else { //folder
+                    fileTime = QDateTime::fromString(element.left(10), "yyyy_MM_dd").toTime_t();
+                    QDir dayFolder(snapshot_file + "/" + element);
+                    if(time - fileTime > duration + 86400){
+                        dayFolder.removeRecursively();
+                    } else {
+                        if(time - fileTime > duration){
+                            QStringList hours = dayFolder.entryList();
+                            for(QString hour : hours){
+                                if(hour == "." || hour == "..")
+                                    continue;
+
+                                fileTime += hour.toInt() * 3600;
+                                QDir hourFolder(dayFolder.absolutePath() + "/" + hour);
+                                if(time - fileTime > duration + 3600){
+                                    hourFolder.removeRecursively();
+                                } else {
+                                    QStringList snapshots = hourFolder.entryList();
+                                    for(QString snapshot : snapshots){
+                                        if(snapshot == "." || snapshot == "..")
+                                            continue;
+                                        fileTime += snapshot.left(2).toInt() * 60 + snapshot.mid(3, 2).toInt();
+                                        if(time - fileTime > duration){
+                                            QFile(hourFolder.absolutePath() + "/" + snapshot).remove();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        snapshot_file += QDate::currentDate().toString("yyyy_MM_dd");
 
         if(settings.value("flat", 0).toBool())
            snapshot_file += "__" + QTime::currentTime().toString("hh_");

@@ -94,14 +94,11 @@ void QMotion::update_images(const QImage& image, const QImage& motion)
 
 void QMotion::acquired()
 {
-    QMutexLocker locker(&fpsMutex);
     counter_++;
-    qDebug() << "acquire";
 }
 
 void QMotion::timerEvent(QTimerEvent *event)
 {
-    QMutexLocker locker(&fpsMutex);
     lcdNumber->display(counter_);
     counter_ = 0;
 }
