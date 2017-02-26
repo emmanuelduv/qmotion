@@ -41,6 +41,7 @@ public:
 
 public slots:
     void motion_treatment();
+    void updateFps();
 
 protected:
     void run();
@@ -48,6 +49,7 @@ protected:
     void add_timestamp(QImage& img);
 
 private:
+    int timerId;
     cv::VideoCapture capture_;
     cv::Mat image_;
     QImage qImage_;

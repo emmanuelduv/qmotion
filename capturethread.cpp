@@ -46,7 +46,7 @@ CaptureThread::CaptureThread(QObject *parent)
     capture_.set(cv::CAP_PROP_FRAME_WIDTH, 10000);
     capture_.set(cv::CAP_PROP_FRAME_HEIGHT, 10000);
 
-    startTimer(1000/settings.value("limit_fps", 25).toInt());
+    timerId = startTimer(1000/settings.value("limit_fps", 25).toInt());
 
     QObject::connect(this, &CaptureThread::output, &motionDetector_, &MotionDetector::input);
     QObject::connect(&motionDetector_, &MotionDetector::motion, this, &CaptureThread::motion_treatment);
@@ -58,22 +58,22 @@ CaptureThread::CaptureThread(QObject *parent)
 CaptureThread::~CaptureThread()
 {
     qDebug() << "CaptureThread::~CaptureThread";
+    killTimer(timerId);
     emit this->abort();
-    if (!wait(1000)) // The thread has 1 second to finish
-    {
-        qDebug() << "thread takes more than 1 second to finish, use the force !";
-    }
     if (capture_.isOpened())
-    {
         capture_.release();
-    }
 }
 
+
+void CaptureThread::updateFps()
+{
+    killTimer(timerId);
+    timerId = startTimer(1000/settings.value("limit_fps", 25).toInt());
+}
 
 void CaptureThread::run()
 {
     qDebug() << "CaptureThread::run";
-
     QEventLoop wait;
     QObject::connect(this, &CaptureThread::abort, &wait, &QEventLoop::quit);
     wait.exec();

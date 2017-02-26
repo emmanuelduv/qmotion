@@ -48,11 +48,9 @@ private slots:
     void dir_settings();
     void ftp_settings();
     void on_pushButton_color_clicked();
-    void on_global_marker_stateChanged(int);
-    void on_component_markers_stateChanged(int);
 
 signals:
-    void motion();
+    void updateFps();
 
 protected:
     void timerEvent(QTimerEvent *event);

@@ -37,8 +37,7 @@ QMotion::QMotion(QWidget *parent)
     setupUi(this);
     startTimer(1000);
 
-    QColor blue(0,0,255);
-    color_ = QColor(settings.value("color", blue.name()).toString());
+    color_ = QColor(settings.value("color", "blue").toString());
     frame_color->setPalette(QPalette(color_));
     frame_color->setAutoFillBackground(true);
     limit_fps->setValue(settings.value("limit_fps", 25).toInt());
@@ -48,6 +47,8 @@ QMotion::QMotion(QWidget *parent)
     checkBox_timestamp->setChecked(settings.value("timestamp", false).toBool());
     checkBox_save->setChecked(settings.value("save_motion_infile", false).toBool());
     checkBox_ftp->setChecked(settings.value("save_motion_inftp", false).toBool());
+    component_markers->setChecked(settings.value("show_component", true).toBool());
+    global_marker->setChecked(settings.value("show_global", true).toBool());
 
     QObject::connect(actionQuit, &QAction::triggered, qApp, &QApplication::quit);
     QObject::connect(actionAbout_QT, &QAction::triggered, qApp, &QApplication::aboutQt);
@@ -59,9 +60,11 @@ QMotion::QMotion(QWidget *parent)
     QObject::connect(&captureThread_, &CaptureThread::motionOutput, this, &QMotion::update_images, Qt::QueuedConnection);
     QObject::connect(&captureThread_, &CaptureThread::acquired, this, &QMotion::acquired, Qt::QueuedConnection);
     QObject::connect(&captureThread_, &CaptureThread::newSize, this, &QMotion::newSize, Qt::QueuedConnection);
+    QObject::connect(this, &QMotion::updateFps, &captureThread_, &CaptureThread::updateFps, Qt::QueuedConnection);
 
     QObject::connect(limit_fps, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=](int value){
         settings.setValue("limit_fps", value);
+        emit this->updateFps();
     });
     QObject::connect(threshold, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=](int value){
         settings.setValue("detection_threshold", value);
@@ -80,6 +83,12 @@ QMotion::QMotion(QWidget *parent)
     });
     QObject::connect(checkBox_ftp, &QCheckBox::toggled, [=](bool checked){
         settings.setValue("save_motion_inftp", checked);
+    });
+    QObject::connect(component_markers, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("show_component", checked);
+    });
+    QObject::connect(global_marker, &QCheckBox::toggled, [=](bool checked){
+        settings.setValue("show_global", checked);
     });
 }
 
@@ -132,8 +141,6 @@ void QMotion::about()
     );
 }
 
-
-
 void QMotion::dir_settings()
 {
     RecorderSetupDlg dialog(0,  Qt::WindowTitleHint | Qt::WindowSystemMenuHint);
@@ -154,31 +161,5 @@ void QMotion::on_pushButton_color_clicked()
         frame_color->setAutoFillBackground(true);
         color_ = color;
         settings.setValue("color", color_.name());
-    }
-}
-
-void QMotion::on_global_marker_stateChanged(int i)
-{
-    switch (i) {
-        case (Qt::Checked):
-            settings.value("show_global", true);
-        break;
-        case (Qt::Unchecked):
-        default:
-            settings.value("show_global", false);
-        break;
-    }
-}
-
-void QMotion::on_component_markers_stateChanged(int i)
-{
-    switch (i) {
-    case (Qt::Checked):
-        settings.value("show_component", true);
-    break;
-    case (Qt::Unchecked):
-    default:
-        settings.value("show_component", false);
-    break;
     }
 }

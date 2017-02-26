@@ -23,7 +23,6 @@
 
 #include <QObject>
 #include <QImage>
-#include <QColor>
 #include <QSettings>
 
 #include <cv.h>
@@ -36,26 +35,18 @@ public:
     ~MotionDetector();
 
 public slots:
-    void set_motion_color(const QColor &);
     void input(const cv::Mat&);
 
 private:
     void  update_mhi(const cv::Mat& img, int diff_threshold);
-    cv::Mat motion_;
-    QColor color_;
-    int last;
-    bool init;
     QSettings settings;
 
-    // ring image buffer
-    QVector<cv::Mat> buf;
-
     // temporary images
+    cv::Mat last;
     cv::Mat mhi; // MHI
     cv::Mat orient; // orientation
     cv::Mat mask; // valid orientation mask
     cv::Mat segmask; // motion segmentation map
-    std::vector<cv::Rect> storage; // temporary storage
 
 signals:
     void output(const QImage& image, const QImage& motion);
