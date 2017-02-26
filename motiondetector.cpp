@@ -74,6 +74,10 @@ void MotionDetector::input(const cv::Mat &img)
         orient = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
         segmask = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
         mask = cv::Mat(img.size[0], img.size[1], IPL_DEPTH_8U, 0.);
+        QSize size;
+        size.setWidth(img.size[1]);
+        size.setHeight(img.size[0]);
+        emit this->newSize(size);
     }
 
     cv::cvtColor(img, buf[last], CV_BGR2GRAY); // convert frame to grayscale

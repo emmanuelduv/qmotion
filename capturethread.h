@@ -62,6 +62,7 @@ signals:
     void webcamError(const QString &);
     void acquired();
     void abort();
+    void newSize(QSize size);
 };
 
 #endif

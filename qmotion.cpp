@@ -58,6 +58,7 @@ QMotion::QMotion(QWidget *parent)
     QObject::connect(&captureThread_, &CaptureThread::webcamError, label_video, &QLabel::setText, Qt::QueuedConnection);
     QObject::connect(&captureThread_, &CaptureThread::motionOutput, this, &QMotion::update_images, Qt::QueuedConnection);
     QObject::connect(&captureThread_, &CaptureThread::acquired, this, &QMotion::acquired, Qt::QueuedConnection);
+    QObject::connect(&captureThread_, &CaptureThread::newSize, this, &QMotion::newSize, Qt::QueuedConnection);
 
     QObject::connect(limit_fps, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=](int value){
         settings.setValue("limit_fps", value);
@@ -84,10 +85,6 @@ QMotion::QMotion(QWidget *parent)
 
 void QMotion::update_images(const QImage& image, const QImage& motion)
 {
-    if(counter_ == 0){
-        label_size->setText(tr("size: %1x%2").arg(image.width()).arg(image.height()));
-    }
-
     label_video->setPixmap(QPixmap::fromImage(image));
     label_motion->setPixmap(QPixmap::fromImage(motion));
 }
@@ -95,6 +92,11 @@ void QMotion::update_images(const QImage& image, const QImage& motion)
 void QMotion::acquired()
 {
     counter_++;
+}
+
+void QMotion::newSize(QSize size)
+{
+    label_size->setText(tr("size: %1x%2").arg(size.width()).arg(size.height()));
 }
 
 void QMotion::timerEvent(QTimerEvent *event)

@@ -41,6 +41,7 @@ public:
 public slots:
     void update_images(const QImage& image, const QImage& motion);
     void acquired();
+    void newSize(QSize size);
 
 private slots:
     void about();
@@ -60,7 +61,6 @@ private:
     QColor color_;
     int counter_;
     CaptureThread captureThread_;
-    QSize video_size_;
     QSettings settings;
 };
 

@@ -51,6 +51,7 @@ CaptureThread::CaptureThread(QObject *parent)
     QObject::connect(this, &CaptureThread::output, &motionDetector_, &MotionDetector::input);
     QObject::connect(&motionDetector_, &MotionDetector::motion, this, &CaptureThread::motion_treatment);
     QObject::connect(&motionDetector_, &MotionDetector::output, this, &CaptureThread::motionOutput);
+    QObject::connect(&motionDetector_, &MotionDetector::newSize, this, &CaptureThread::newSize);
 }
 
 

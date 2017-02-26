@@ -61,6 +61,7 @@ signals:
     void output(const QImage& image, const QImage& motion);
     void error(const cv::Mat &);
     void motion();
+    void newSize(QSize size);
 };
 #endif
 
