@@ -33,7 +33,7 @@ QMAKE_POST_LINK = lrelease \
     qmotion.pro
 unix { 
     CONFIG += link_pkgconfig
-    PKGCONFIG += opencv
+    PKGCONFIG += opencv4
 }
 win32 { 
     LIBS += cv.lib \

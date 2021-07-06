@@ -23,8 +23,10 @@
 
 #include <QImage>
 
-#include <cv.h>
-#include <highgui.h>
+//#include <cv.h>
+#include <opencv2/opencv.hpp>
+//#include <highgui.h>
+#include <opencv2/highgui.hpp>
 
 QImage  cvMatToQImage(const cv::Mat& inMat , bool upsideDown);
 

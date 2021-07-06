@@ -67,7 +67,7 @@ void MotionDetector::input(const cv::Mat &img)
     cv::Point center;
     cv::Scalar color;
 
-    cv::cvtColor(img, actual, CV_BGR2GRAY); // convert frame to grayscale
+    cv::cvtColor(img, actual, cv::COLOR_BGR2GRAY/*CV_BGR2GRAY*/); // convert frame to grayscale
     // allocate images at the beginning or
     // reallocate them if the frame size is changed
     if(mhi.size[0] == 0 || mhi.size[0] != img.size[0] || mhi.size[1] != img.size[1]) {
@@ -75,7 +75,7 @@ void MotionDetector::input(const cv::Mat &img)
         mhi = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
         orient = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
         segmask = cv::Mat(img.size[0], img.size[1], CV_32FC1, 0.);
-        mask = cv::Mat(img.size[0], img.size[1], IPL_DEPTH_8U, 0.);
+        mask = cv::Mat(img.size[0], img.size[1], /*IPL_DEPTH_8U*/CV_8UC1, 0.);
         QSize size;
         size.setWidth(img.size[1]);
         size.setHeight(img.size[0]);
@@ -86,13 +86,13 @@ void MotionDetector::input(const cv::Mat &img)
 
     last = actual;
 
-    cv::threshold(silh, silh, settings.value("detection_threshold", 30).toInt(), 1, CV_THRESH_BINARY); // and threshold it
+    cv::threshold(silh, silh, settings.value("detection_threshold", 30).toInt(), 1, cv::THRESH_BINARY); // and threshold it
 
     cv::motempl::updateMotionHistory(silh, mhi, timestamp, MHI_DURATION); // update MHI
 
     // convert MHI to blue 8u image
     mask = mhi * (255. / MHI_DURATION) + ((MHI_DURATION - timestamp) * 255. / MHI_DURATION);
-    mask.convertTo(mask, IPL_DEPTH_8U);
+    mask.convertTo(mask, /*IPL_DEPTH_8U*/CV_8UC1);
 
     QColor color_ = QColor(settings.value("color", "blue").toString());
     if(show){
@@ -161,7 +161,7 @@ void MotionDetector::input(const cv::Mat &img)
                 cvRound(magnitude * 1.2),
                 color,
                 3,
-                CV_AA,
+                /*CV_AA*/cv::LINE_AA,
                 0
             );
             cv::line(
@@ -173,7 +173,7 @@ void MotionDetector::input(const cv::Mat &img)
                 ),
                 color,
                 3,
-                CV_AA,
+                /*CV_AA*/cv::LINE_AA,
                 0
             );
         }

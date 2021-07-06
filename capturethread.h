@@ -26,7 +26,8 @@
 
 #include "motiondetector.h"
 
-#include <cv.h>
+//#include <cv.h>
+#include <opencv2/opencv.hpp>
 #include <opencv2/videoio/videoio.hpp>
 
 #include <QNetworkAccessManager>

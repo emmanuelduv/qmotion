@@ -25,7 +25,8 @@
 #include <QImage>
 #include <QSettings>
 
-#include <cv.h>
+#include <opencv2/opencv.hpp>
+//#include <cv.h>
 
 class MotionDetector : public QObject
 {
